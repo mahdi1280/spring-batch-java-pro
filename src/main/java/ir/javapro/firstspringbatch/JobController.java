@@ -17,10 +17,12 @@ public class JobController {
 
     private final Job job;
     private final JobOperator jobOperator;
+    private final Job chunkJob;
 
-    public JobController(Job job, JobOperator jobOperator) {
+    public JobController(@Qualifier("job") Job job, JobOperator jobOperator, @Qualifier("chunkJob") Job chunkJob) {
         this.job = job;
         this.jobOperator = jobOperator;
+        this.chunkJob = chunkJob;
     }
 
     @GetMapping("/run")
@@ -31,5 +33,10 @@ public class JobController {
                 .toJobParameters();
 
         jobOperator.start(job, jobParameters);
+    }
+
+    @GetMapping("/runChunk")
+    public void runChunk() throws JobInstanceAlreadyCompleteException, InvalidJobParametersException, JobExecutionAlreadyRunningException, JobRestartException {
+        jobOperator.start(chunkJob, new JobParameters());
     }
 }
