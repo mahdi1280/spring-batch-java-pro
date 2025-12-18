@@ -7,6 +7,7 @@ import org.springframework.batch.core.job.parameters.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -18,9 +19,12 @@ public class BatchConfig {
     //step
 
     @Bean
-    public Job job(JobRepository jobRepository, Step step) {
+    public Job job(JobRepository jobRepository,
+                   @Qualifier("printStep") Step printStep,
+                   @Qualifier("printStep2") Step printStep2) {
         return new JobBuilder("print", jobRepository)
-                .start(step)
+                .start(printStep)
+                .next(printStep2)
 //                .incrementer(new RunIdIncrementer())
                 .build();
     }
@@ -29,7 +33,16 @@ public class BatchConfig {
     public Step printStep(JobRepository jobRepository) {
         return new StepBuilder(jobRepository)
                 .tasklet((t1, t2) -> {
-                    System.out.println("Hello World");
+                    System.out.println("step 1");
+                    return null;
+                }).build();
+    }
+
+    @Bean
+    public Step printStep2(JobRepository jobRepository) {
+        return new StepBuilder(jobRepository)
+                .tasklet((t1, t2) -> {
+                    System.out.println("step 2");
                     return null;
                 }).build();
     }
