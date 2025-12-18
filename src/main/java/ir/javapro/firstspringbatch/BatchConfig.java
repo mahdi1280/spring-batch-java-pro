@@ -34,6 +34,8 @@ public class BatchConfig {
         return new StepBuilder(jobRepository)
                 .tasklet((t1, t2) -> {
                     System.out.println("step 1");
+                    String message = (String) t2.getStepContext().getJobParameters().get("message");
+                    System.out.println(message);
                     return null;
                 }).build();
     }
