@@ -20,17 +20,20 @@ public class JobController {
     private final Job chunkJob;
     private final Job sampleJob;
     private final Job runPersonJob;
+    private final Job excelJob;
 
     public JobController(@Qualifier("job") Job job,
                          JobOperator jobOperator,
                          @Qualifier("chunkJob") Job chunkJob,
                          @Qualifier("sampleJob") Job sampleJob,
-                         @Qualifier("personJob") Job runPersonJob) {
+                         @Qualifier("personJob") Job runPersonJob,
+                         @Qualifier("excelJob") Job excelJob) {
         this.job = job;
         this.jobOperator = jobOperator;
         this.chunkJob = chunkJob;
         this.sampleJob = sampleJob;
         this.runPersonJob = runPersonJob;
+        this.excelJob = excelJob;
     }
 
     @GetMapping("/run")
@@ -56,5 +59,10 @@ public class JobController {
     @GetMapping("/runPersonJob")
     public void runPersonJob() throws JobInstanceAlreadyCompleteException, InvalidJobParametersException, JobExecutionAlreadyRunningException, JobRestartException {
         jobOperator.start(runPersonJob, new JobParameters());
+    }
+
+    @GetMapping("/excelJobRun")
+    public void excelJobRun() throws JobInstanceAlreadyCompleteException, InvalidJobParametersException, JobExecutionAlreadyRunningException, JobRestartException {
+        jobOperator.start(excelJob, new JobParameters());
     }
 }
