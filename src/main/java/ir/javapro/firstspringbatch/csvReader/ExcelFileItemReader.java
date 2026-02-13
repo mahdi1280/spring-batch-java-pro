@@ -1,5 +1,6 @@
 package ir.javapro.firstspringbatch.csvReader;
 
+import ir.javapro.firstspringbatch.model.PersonEntity;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -12,7 +13,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 
-public class ExcelFileItemReader implements ItemReader<Person> {
+public class ExcelFileItemReader implements ItemReader<PersonEntity> {
 
     private Iterator<Row> rowIterator;
 
@@ -30,19 +31,17 @@ public class ExcelFileItemReader implements ItemReader<Person> {
 
 
     @Override
-    public @Nullable Person read() throws Exception {
+    public @Nullable PersonEntity read() throws Exception {
         if(!rowIterator.hasNext()) {
             return null;
         }
 
         Row row = rowIterator.next();
 
-        return new Person(
-                (int)row.getCell(0).getNumericCellValue(),
-                row.getCell(1).getStringCellValue(),
+        return new PersonEntity(row.getCell(1).getStringCellValue(),
                 row.getCell(2).getStringCellValue(),
                 row.getCell(3).getStringCellValue(),
-                (long) row.getCell(4).getNumericCellValue()
+                (int) row.getCell(4).getNumericCellValue()
         );
     }
 }

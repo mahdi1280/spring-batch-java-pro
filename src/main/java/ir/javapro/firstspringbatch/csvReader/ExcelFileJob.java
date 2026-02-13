@@ -1,5 +1,7 @@
 package ir.javapro.firstspringbatch.csvReader;
 
+import ir.javapro.firstspringbatch.model.PersonEntity;
+import jakarta.persistence.EntityManagerFactory;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
@@ -8,6 +10,7 @@ import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.infrastructure.item.ItemProcessor;
 import org.springframework.batch.infrastructure.item.ItemReader;
 import org.springframework.batch.infrastructure.item.ItemWriter;
+import org.springframework.batch.infrastructure.item.database.JpaItemWriter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -20,12 +23,12 @@ public class ExcelFileJob {
 
 
     @Bean
-    public ItemReader<Person> excelReader() throws IOException {
+    public ItemReader<PersonEntity> excelReader() throws IOException {
         return new ExcelFileItemReader(new ClassPathResource("employee.xlsx"));
     }
 
     @Bean
-    public ItemProcessor<Person, Person> excelProcessor() throws IOException {
+    public ItemProcessor<PersonEntity, PersonEntity> excelProcessor() throws IOException {
         return p -> {
             if (p.getFirstName() == null) {
                 return null;
@@ -35,18 +38,23 @@ public class ExcelFileJob {
     }
 
 
+//    @Bean
+//    public ItemWriter<Person> excelWriter() throws IOException {
+//        return p-> p.getItems().forEach(System.out::println);
+//    }
+
     @Bean
-    public ItemWriter<Person> excelWriter() throws IOException {
-        return p-> p.getItems().forEach(System.out::println);
+    public JpaItemWriter<PersonEntity> excelWriter(EntityManagerFactory entityManagerFactory) throws IOException {
+        return new JpaItemWriter<>(entityManagerFactory);
     }
 
 
     @Bean
     public Step excelStep(JobRepository jobRepository) throws IOException {
         return new StepBuilder(jobRepository)
-                .<Person, Person>chunk(4)
+                .<PersonEntity, PersonEntity>chunk(4)
                 .reader(excelReader())
-                .writer(excelWriter())
+                .writer(excelWriter(null))
                 .processor(excelProcessor())
                 .build();
 
