@@ -1,26 +1,39 @@
-package ir.javapro.firstspringbatch.csvReader;
+package ir.javapro.firstspringbatch.model;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+
+@Entity
 public class Person {
 
-    private long id;
+    private Integer id;
     private String firstName;
     private String lastName;
     private String email;
-    private long salary;
+    private Integer salary;
+    private Boolean valid;
 
-    public Person(long id, String firstName, String lastName, String email, long salary) {
+    public Person(Integer id, String firstName, String lastName, String email, Integer salary, Boolean valid) {
         this.id = id;
         this.firstName = firstName;
         this.lastName = lastName;
         this.email = email;
         this.salary = salary;
+        this.valid = valid;
     }
 
-    public long getId() {
+    public Person() {
+    }
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    public Integer getId() {
         return id;
     }
 
-    public void setId(long id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 
@@ -48,22 +61,19 @@ public class Person {
         this.email = email;
     }
 
-    public long getSalary() {
+    public Integer getSalary() {
         return salary;
     }
 
-    public void setSalary(long salary) {
+    public void setSalary(Integer salary) {
         this.salary = salary;
     }
 
-    @Override
-    public String toString() {
-        return "Person{" +
-                "id=" + id +
-                ", firstName='" + firstName + '\'' +
-                ", lastName='" + lastName + '\'' +
-                ", email='" + email + '\'' +
-                ", salary=" + salary +
-                '}';
+    public Boolean getValid() {
+        return valid;
+    }
+
+    public void setValid(Boolean valid) {
+        this.valid = valid;
     }
 }
