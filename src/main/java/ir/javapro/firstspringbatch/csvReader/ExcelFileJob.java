@@ -8,10 +8,14 @@ import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.infrastructure.item.ItemProcessor;
 import org.springframework.batch.infrastructure.item.ItemReader;
 import org.springframework.batch.infrastructure.item.ItemWriter;
+import org.springframework.batch.infrastructure.item.database.BeanPropertyItemSqlParameterSourceProvider;
+import org.springframework.batch.infrastructure.item.database.JdbcBatchItemWriter;
+import org.springframework.batch.infrastructure.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 
+import javax.sql.DataSource;
 import java.io.IOException;
 
 @Configuration
@@ -35,9 +39,19 @@ public class ExcelFileJob {
     }
 
 
+//    @Bean
+//    public ItemWriter<Person> excelWriter() throws IOException {
+//        return p-> p.getItems().forEach(System.out::println);
+//    }
+
+
     @Bean
-    public ItemWriter<Person> excelWriter() throws IOException {
-        return p-> p.getItems().forEach(System.out::println);
+    public JdbcBatchItemWriter<Person> excelWriter(DataSource dataSource) throws IOException {
+        return new JdbcBatchItemWriterBuilder<Person>()
+                .itemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>())
+                .sql("INSERT INTO PERSON (id, firstName, lastName, email, salary) values(:id, :firstName, :lastName, :email, :salary)")
+                .dataSource(dataSource)
+                .build();
     }
 
 
@@ -46,7 +60,7 @@ public class ExcelFileJob {
         return new StepBuilder(jobRepository)
                 .<Person, Person>chunk(4)
                 .reader(excelReader())
-                .writer(excelWriter())
+                .writer(excelWriter(null))
                 .processor(excelProcessor())
                 .build();
 
