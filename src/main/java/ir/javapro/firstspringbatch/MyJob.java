@@ -6,6 +6,7 @@ import org.springframework.batch.core.listener.SkipListener;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.core.step.skip.SkipPolicy;
 import org.springframework.batch.infrastructure.item.ItemProcessor;
 import org.springframework.batch.infrastructure.item.ItemReader;
 import org.springframework.batch.infrastructure.item.ItemWriter;
@@ -56,7 +57,9 @@ public class MyJob {
     }
 
     @Bean
-    public Step step(JobRepository jobRepository, ListenerSkip listenerSkip) {
+    public Step step(JobRepository jobRepository,
+                     ListenerSkip listenerSkip,
+                     SkipPolicy skipPolicy) {
         return new StepBuilder(jobRepository)
                 .<Person, Person>chunk(CHUNK_SIZE)
                 .reader(jpaPersonReader())
@@ -66,15 +69,29 @@ public class MyJob {
 //                .retry(RuntimeException.class)
 //                .retryLimit(3)
                 .skip(RuntimeException.class)
+                .skip(IllegalAccessException.class)
+                .skipPolicy(skipPolicy)
                 .skipLimit(4)
                 .skipListener(listenerSkip)
                 .build();
     }
 
     @Bean
-    public Job job(JobRepository jobRepository, ListenerSkip listenerSkip) {
+    public SkipPolicy skipPolicy() {
+        return (e, count)->{
+            if(count<5) {
+                return Boolean.TRUE;
+            }
+            return Boolean.FALSE;
+        };
+    }
+
+    @Bean
+    public Job job(JobRepository jobRepository,
+                   ListenerSkip listenerSkip,
+                   SkipPolicy skipPolicy) {
         return new JobBuilder(jobRepository)
-                .start(step(null, listenerSkip))
+                .start(step(null, listenerSkip, skipPolicy))
                 .build();
     }
 
