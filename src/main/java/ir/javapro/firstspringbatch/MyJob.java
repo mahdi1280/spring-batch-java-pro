@@ -2,6 +2,7 @@ package ir.javapro.firstspringbatch;
 
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.listener.SkipListener;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -11,6 +12,7 @@ import org.springframework.batch.infrastructure.item.ItemWriter;
 import org.springframework.batch.infrastructure.item.support.ListItemReader;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
 import java.util.List;
@@ -35,6 +37,10 @@ public class MyJob {
     @Bean
     public ItemProcessor<Person, Person> processor() {
         return p -> {
+            if(p.getName().equalsIgnoreCase("ali")) {
+                System.out.println("exception");
+                throw new RuntimeException("exception");
+            }
             p.setName(p.getName() + "a");
             return p;
         };
@@ -50,19 +56,33 @@ public class MyJob {
     }
 
     @Bean
-    public Step step(JobRepository jobRepository) {
+    public Step step(JobRepository jobRepository, ListenerSkip listenerSkip) {
         return new StepBuilder(jobRepository)
                 .<Person, Person>chunk(CHUNK_SIZE)
                 .reader(jpaPersonReader())
                 .processor(processor())
                 .writer(jpaPersonWriter())
+                .faultTolerant()
+//                .retry(RuntimeException.class)
+//                .retryLimit(3)
+                .skip(RuntimeException.class)
+                .skipLimit(4)
+                .skipListener(listenerSkip)
                 .build();
     }
 
     @Bean
-    public Job job(JobRepository jobRepository) {
+    public Job job(JobRepository jobRepository, ListenerSkip listenerSkip) {
         return new JobBuilder(jobRepository)
-                .start(step(null))
+                .start(step(null, listenerSkip))
                 .build();
+    }
+
+    @Component
+    public static class ListenerSkip implements SkipListener<Person,Person> {
+        @Override
+        public void onSkipInProcess(Person item, Throwable t) {
+            System.out.println("skip in-process");
+        }
     }
 }
