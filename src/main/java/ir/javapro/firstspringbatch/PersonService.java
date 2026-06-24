@@ -17,7 +17,14 @@ public class PersonService {
 
     public void save(Chunk<Person> personList) {
         for (Person person : personList) {
-            personRepository.save(person);
+            try {
+                if(person.getName().equals("Tara")) {
+                    throw new RuntimeException("error");
+                }
+                personRepository.save(person);
+            } catch (Exception ex) {
+                break;
+            }
         }
     }
 

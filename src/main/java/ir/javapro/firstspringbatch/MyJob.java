@@ -34,6 +34,7 @@ public class MyJob {
                 .name("personReader")
                 .entityManagerFactory(entityManagerFactory)
                 .queryString("SELECT p FROM Person p order by p.id")
+                .pageSize(6)
                 .build();
     }
 
@@ -48,6 +49,9 @@ public class MyJob {
     @Bean
     public ItemProcessor<Person, Person> processor() {
         return p -> {
+//            if(p.getName().equals("Tara")) {
+//                throw new RuntimeException("error");
+//            }
             personService.changeStatus(p);
             return p;
         };
@@ -60,11 +64,14 @@ public class MyJob {
                      ItemWriter<Person> jpaPersonWriter) {
 
         return new StepBuilder("step1", jobRepository)
-                .<Person, Person>chunk(5)
+                .<Person, Person>chunk(6)
                 .reader(jpaPersonReader)
                 .processor(processor())
                 .writer(jpaPersonWriter)
                 .transactionManager(transactionManager)
+//                .faultTolerant()
+//                .skip(RuntimeException.class)
+//                .skipLimit(2)
                 .build();
     }
 
