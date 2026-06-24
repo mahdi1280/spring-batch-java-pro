@@ -26,7 +26,7 @@ public class JobController {
     public ResponseEntity<?> startJob() throws JobInstanceAlreadyCompleteException, InvalidJobParametersException, JobExecutionAlreadyRunningException, JobRestartException {
         JobParameters jobParameters = new JobParametersBuilder()
                 .addLong("time", System.currentTimeMillis(), Boolean.TRUE)
-                .addLong("id", 0L)
+                .addLong("id", 1L)
                 .toJobParameters();
         jobOperator.start(job, jobParameters);
         return ResponseEntity.ok().build();
