@@ -1,105 +1,78 @@
 package ir.javapro.firstspringbatch;
 
+import jakarta.persistence.EntityManagerFactory;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
-import org.springframework.batch.core.listener.SkipListener;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
-import org.springframework.batch.core.step.skip.SkipPolicy;
+import org.springframework.batch.infrastructure.item.Chunk;
 import org.springframework.batch.infrastructure.item.ItemProcessor;
-import org.springframework.batch.infrastructure.item.ItemReader;
 import org.springframework.batch.infrastructure.item.ItemWriter;
-import org.springframework.batch.infrastructure.item.support.ListItemReader;
+import org.springframework.batch.infrastructure.item.database.JpaItemWriter;
+import org.springframework.batch.infrastructure.item.database.JpaPagingItemReader;
+import org.springframework.batch.infrastructure.item.database.builder.JpaItemWriterBuilder;
+import org.springframework.batch.infrastructure.item.database.builder.JpaPagingItemReaderBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
 
-import java.util.Arrays;
 import java.util.List;
 
 @Configuration
 public class MyJob {
 
-    public static final Integer CHUNK_SIZE = 4;
+    private final PersonService personService;
+
+    public MyJob(PersonService personService) {
+        this.personService = personService;
+    }
 
     @Bean
-    public ItemReader<Person> jpaPersonReader() {
-        List<Person> persons = Arrays.asList(
-                new Person(1, "Ali"),
-                new Person(2, "Reza"),
-                new Person(3, "Sara"),
-                new Person(4, "Mina")
-        );
-
-        return new ListItemReader<>(persons);
+    public JpaPagingItemReader<Person> jpaPersonReader(EntityManagerFactory entityManagerFactory) {
+        return new JpaPagingItemReaderBuilder<Person>()
+                .name("personReader")
+                .entityManagerFactory(entityManagerFactory)
+                .queryString("SELECT p FROM Person p order by p.id")
+                .build();
     }
+
+    @Bean
+    public ItemWriter<Person> jpaPersonWriter() {
+        return persons->{
+            personService.save((Chunk<Person>) persons);
+        };
+    }
+
 
     @Bean
     public ItemProcessor<Person, Person> processor() {
         return p -> {
-            if(p.getName().equalsIgnoreCase("ali")) {
-                System.out.println("exception");
-                throw new RuntimeException("exception");
-            }
-            p.setName(p.getName() + "a");
+            personService.changeStatus(p);
             return p;
         };
     }
 
     @Bean
-    public ItemWriter<Person> jpaPersonWriter() {
-        return (persons) -> {
-            for (Person person : persons) {
-                System.out.println(person.getName());
-            }
-        };
-    }
-
-    @Bean
     public Step step(JobRepository jobRepository,
-                     ListenerSkip listenerSkip,
-                     SkipPolicy skipPolicy) {
-        return new StepBuilder(jobRepository)
-                .<Person, Person>chunk(CHUNK_SIZE)
-                .reader(jpaPersonReader())
+                     PlatformTransactionManager transactionManager,
+                     JpaPagingItemReader<Person> jpaPersonReader,
+                     ItemWriter<Person> jpaPersonWriter) {
+
+        return new StepBuilder("step1", jobRepository)
+                .<Person, Person>chunk(5)
+                .reader(jpaPersonReader)
                 .processor(processor())
-                .writer(jpaPersonWriter())
-                .faultTolerant()
-//                .retry(RuntimeException.class)
-//                .retryLimit(3)
-                .skip(RuntimeException.class)
-                .skip(IllegalAccessException.class)
-                .skipPolicy(skipPolicy)
-                .skipLimit(4)
-                .skipListener(listenerSkip)
+                .writer(jpaPersonWriter)
+                .transactionManager(transactionManager)
                 .build();
     }
 
-    @Bean
-    public SkipPolicy skipPolicy() {
-        return (e, count)->{
-            if(count<5) {
-                return Boolean.TRUE;
-            }
-            return Boolean.FALSE;
-        };
-    }
 
     @Bean
-    public Job job(JobRepository jobRepository,
-                   ListenerSkip listenerSkip,
-                   SkipPolicy skipPolicy) {
+    public Job job(JobRepository jobRepository,  Step step) {
         return new JobBuilder(jobRepository)
-                .start(step(null, listenerSkip, skipPolicy))
+                .start(step)
                 .build();
-    }
-
-    @Component
-    public static class ListenerSkip implements SkipListener<Person,Person> {
-        @Override
-        public void onSkipInProcess(Person item, Throwable t) {
-            System.out.println("skip in-process");
-        }
     }
 }

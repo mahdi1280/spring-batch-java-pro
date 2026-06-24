@@ -31,9 +31,4 @@ public class JobController {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/restart/{id}")
-    public ResponseEntity<?> restart(@PathVariable long id) throws JobInstanceAlreadyCompleteException, NoSuchJobException, InvalidJobParametersException, NoSuchJobExecutionException, JobRestartException {
-        jobOperator.restart(id);
-        return ResponseEntity.ok().build();
-    }
 }
