@@ -5,6 +5,8 @@ import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.job.parameters.DefaultJobParametersValidator;
+import org.springframework.batch.core.job.parameters.JobParametersValidator;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -21,6 +23,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.util.List;
+import java.util.Objects;
 
 @Configuration
 public class MyJob {
@@ -43,7 +46,7 @@ public class MyJob {
 
     @Bean
     public ItemWriter<Person> jpaPersonWriter() {
-        return persons->{
+        return persons -> {
             personService.save((Chunk<Person>) persons);
         };
     }
@@ -51,9 +54,9 @@ public class MyJob {
 
     @Bean
     @StepScope
-    public ItemProcessor<Person, Person> processor(@Value("#{jobParameters['time1']}") Long time) {
+    public ItemProcessor<Person, Person> processor(@Value("#{jobParameters['id']}") Long id) {
         return p -> {
-            System.out.println(time);
+            System.out.println(id);
 //            if(p.getName().equals("Tara")) {
 //                throw new RuntimeException("error");
 //            }
@@ -82,9 +85,20 @@ public class MyJob {
 
 
     @Bean
-    public Job job(JobRepository jobRepository,  Step step) {
+    public Job job(JobRepository jobRepository, Step step, JobParametersValidator validator) {
         return new JobBuilder(jobRepository)
                 .start(step)
+                .validator(validator)
                 .build();
+    }
+
+    @Bean
+    public JobParametersValidator validator() {
+        return (parameters) -> {
+            Long id = parameters.getLong("id");
+            if (Objects.isNull(id) || id == 0) {
+                throw new RuntimeException("id is null or id is 0");
+            }
+        };
     }
 }
