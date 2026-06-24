@@ -1,6 +1,8 @@
 package ir.javapro.firstspringbatch;
 
 import jakarta.persistence.EntityManagerFactory;
+import org.springframework.batch.core.configuration.annotation.JobScope;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
@@ -13,6 +15,7 @@ import org.springframework.batch.infrastructure.item.database.JpaItemWriter;
 import org.springframework.batch.infrastructure.item.database.JpaPagingItemReader;
 import org.springframework.batch.infrastructure.item.database.builder.JpaItemWriterBuilder;
 import org.springframework.batch.infrastructure.item.database.builder.JpaPagingItemReaderBuilder;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -47,8 +50,10 @@ public class MyJob {
 
 
     @Bean
-    public ItemProcessor<Person, Person> processor() {
+    @StepScope
+    public ItemProcessor<Person, Person> processor(@Value("#{jobParameters['time1']}") Long time) {
         return p -> {
+            System.out.println(time);
 //            if(p.getName().equals("Tara")) {
 //                throw new RuntimeException("error");
 //            }
@@ -66,7 +71,7 @@ public class MyJob {
         return new StepBuilder("step1", jobRepository)
                 .<Person, Person>chunk(6)
                 .reader(jpaPersonReader)
-                .processor(processor())
+                .processor(processor(null))
                 .writer(jpaPersonWriter)
                 .transactionManager(transactionManager)
 //                .faultTolerant()
