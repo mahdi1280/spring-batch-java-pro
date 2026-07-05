@@ -28,11 +28,14 @@ import org.springframework.batch.infrastructure.item.database.JpaItemWriter;
 import org.springframework.batch.infrastructure.item.database.JpaPagingItemReader;
 import org.springframework.batch.infrastructure.item.database.builder.JpaItemWriterBuilder;
 import org.springframework.batch.infrastructure.item.database.builder.JpaPagingItemReaderBuilder;
+import org.springframework.batch.infrastructure.item.support.SynchronizedItemStreamReader;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 
@@ -54,8 +57,13 @@ public class MyJob {
                 .name("personReader")
                 .entityManagerFactory(entityManagerFactory)
                 .queryString("SELECT p FROM Person p order by p.id")
-                .pageSize(6)
+                .pageSize(100)
                 .build();
+    }
+
+    @Bean
+    public SynchronizedItemStreamReader<Person> synchronizedItemStreamReader(JpaPagingItemReader<Person> reader) {
+        return new SynchronizedItemStreamReader<>(reader);
     }
 
     @Bean
@@ -65,11 +73,10 @@ public class MyJob {
         };
     }
 
-
     @Bean
-    @StepScope
-    public ItemProcessor<Person, Person> processor(@Value("#{jobParameters['id']}") Long id) {
+    public ItemProcessor<Person, Person> processor() {
         return p -> {
+            Thread.sleep(10);
             personService.changeStatus(p);
             return p;
         };
@@ -77,103 +84,37 @@ public class MyJob {
 
     @Bean
     public Step step(JobRepository jobRepository,
+                     ItemProcessor<Person, Person> processor,
                      PlatformTransactionManager transactionManager,
                      JpaPagingItemReader<Person> jpaPersonReader,
-                     ItemWriter<Person> jpaPersonWriter, StepExecutionListener listener) {
+                     SynchronizedItemStreamReader<Person> synchronizedItemStreamReader,
+                     ItemWriter<Person> jpaPersonWriter, AsyncTaskExecutor taskExecutor) {
 
         return new StepBuilder("step1", jobRepository)
-                .<Person, Person>chunk(6)
-                .reader(jpaPersonReader)
-                .processor(processor(null))
+                .<Person, Person>chunk(100)
+                .reader(synchronizedItemStreamReader(jpaPersonReader))
+                .processor(processor)
                 .writer(jpaPersonWriter)
+                .taskExecutor(taskExecutor)
                 .transactionManager(transactionManager)
-                .listener(listener)
-                .build();
-    }
-
-
-    @Bean
-    public Job job(JobRepository jobRepository, Step step,
-                   JobParametersValidator validator, JobExecutionDecider decider,
-                   JobExecutionListener listener, TaskExecutor taskExecutor,
-                   org.springframework.batch.core.job.flow.Flow myFlow) {
-        return new JobBuilder(jobRepository)
-                .start(step)
-                .next(decider)
-                .on("FULL").to(step)
-                .from(decider).on("NORMAL").to(step)
-                .end()
-                .validator(validator)
-                .listener(listener)
                 .build();
     }
 
     @Bean
-    public TaskExecutor taskExecutor() {
-        SimpleAsyncTaskExecutor executor = new SimpleAsyncTaskExecutor();
-        executor.setConcurrencyLimit(4);
+    public AsyncTaskExecutor taskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(8);
+        executor.setMaxPoolSize(16);
+        executor.setQueueCapacity(100);
+        executor.setThreadNamePrefix("batch-thread-");
+        executor.initialize();
         return executor;
     }
 
     @Bean
-    public org.springframework.batch.core.job.flow.Flow myFlow(Step step) {
-        return new FlowBuilder<Flow>("myFlow")
+    public Job job(JobRepository jobRepository, Step step) {
+        return new JobBuilder("job" ,jobRepository)
                 .start(step)
-
-//                .next()
-                .end();
+                .build();
     }
-
-    @Bean
-    public JobParametersValidator validator() {
-        return (parameters) -> {
-            Long id = parameters.getLong("id");
-            if (Objects.isNull(id) || id == 0) {
-                throw new RuntimeException("id is null or id is 0");
-            }
-        };
-    }
-
-    @Component
-    public static class JobListener implements JobExecutionListener {
-        @Override
-        public void beforeJob(JobExecution jobExecution) {
-            System.out.println("before job");
-        }
-
-        @Override
-        public void afterJob(JobExecution jobExecution) {
-            System.out.println("after job");
-        }
-    }
-
-    @Component
-    public static class StepListener implements StepExecutionListener{
-        @Override
-        public void beforeStep(StepExecution stepExecution) {
-            System.out.println("before step");
-            StepExecutionListener.super.beforeStep(stepExecution);
-        }
-
-        @Override
-        public @Nullable ExitStatus afterStep(StepExecution stepExecution) {
-            System.out.println("after step");
-            return StepExecutionListener.super.afterStep(stepExecution);
-        }
-
-    }
-
-    @Bean
-    public JobExecutionDecider decider() {
-        return (jobExecution, stepExecution) ->  {
-            String mode = jobExecution.getJobParameters().getString("mode");
-            if(mode.equals("FILL")) {
-                return new FlowExecutionStatus("FULL");
-            }else {
-               return new FlowExecutionStatus("NORMAL");
-            }
-        };
-    }
-
-
 }

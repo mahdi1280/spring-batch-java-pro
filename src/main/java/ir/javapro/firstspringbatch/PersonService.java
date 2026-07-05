@@ -16,9 +16,7 @@ public class PersonService {
     }
 
     public void save(Chunk<Person> personList) {
-        for (Person person : personList) {
-            personRepository.save(person);
-        }
+        personRepository.saveAll(personList);
     }
 
     public void changeStatus(Person person) {

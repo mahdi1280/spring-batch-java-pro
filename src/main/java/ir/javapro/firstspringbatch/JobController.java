@@ -8,7 +8,6 @@ import org.springframework.batch.core.job.parameters.JobParametersBuilder;
 import org.springframework.batch.core.launch.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -24,12 +23,13 @@ public class JobController {
 
     @GetMapping("/start")
     public ResponseEntity<?> startJob() throws JobInstanceAlreadyCompleteException, InvalidJobParametersException, JobExecutionAlreadyRunningException, JobRestartException {
+        Long startTime = System.currentTimeMillis();
         JobParameters jobParameters = new JobParametersBuilder()
                 .addLong("time", System.currentTimeMillis(), Boolean.TRUE)
-                .addLong("id", 1L)
                 .toJobParameters();
         jobOperator.start(job, jobParameters);
-        return ResponseEntity.ok().build();
+        Long endTime = System.currentTimeMillis(); //6000
+        return ResponseEntity.ok(endTime-startTime);
     }
 
 }
