@@ -7,7 +7,11 @@ import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
+import org.springframework.batch.core.job.builder.FlowBuilder;
 import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.job.flow.Flow;
+import org.springframework.batch.core.job.flow.FlowExecutionStatus;
+import org.springframework.batch.core.job.flow.JobExecutionDecider;
 import org.springframework.batch.core.job.parameters.DefaultJobParametersValidator;
 import org.springframework.batch.core.job.parameters.JobParametersValidator;
 import org.springframework.batch.core.listener.ItemReadListener;
@@ -27,6 +31,8 @@ import org.springframework.batch.infrastructure.item.database.builder.JpaPagingI
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 
@@ -49,7 +55,6 @@ public class MyJob {
                 .entityManagerFactory(entityManagerFactory)
                 .queryString("SELECT p FROM Person p order by p.id")
                 .pageSize(6)
-
                 .build();
     }
 
@@ -65,10 +70,6 @@ public class MyJob {
     @StepScope
     public ItemProcessor<Person, Person> processor(@Value("#{jobParameters['id']}") Long id) {
         return p -> {
-            System.out.println(id);
-//            if(p.getName().equals("Tara")) {
-//                throw new RuntimeException("error");
-//            }
             personService.changeStatus(p);
             return p;
         };
@@ -86,21 +87,41 @@ public class MyJob {
                 .processor(processor(null))
                 .writer(jpaPersonWriter)
                 .transactionManager(transactionManager)
-//                .faultTolerant()
-//                .skip(RuntimeException.class)
-//                .skipLimit(2)
                 .listener(listener)
                 .build();
     }
 
 
     @Bean
-    public Job job(JobRepository jobRepository, Step step, JobParametersValidator validator, JobExecutionListener listener) {
+    public Job job(JobRepository jobRepository, Step step,
+                   JobParametersValidator validator, JobExecutionDecider decider,
+                   JobExecutionListener listener, TaskExecutor taskExecutor,
+                   org.springframework.batch.core.job.flow.Flow myFlow) {
         return new JobBuilder(jobRepository)
                 .start(step)
+                .next(decider)
+                .on("FULL").to(step)
+                .from(decider).on("NORMAL").to(step)
+                .end()
                 .validator(validator)
                 .listener(listener)
                 .build();
+    }
+
+    @Bean
+    public TaskExecutor taskExecutor() {
+        SimpleAsyncTaskExecutor executor = new SimpleAsyncTaskExecutor();
+        executor.setConcurrencyLimit(4);
+        return executor;
+    }
+
+    @Bean
+    public org.springframework.batch.core.job.flow.Flow myFlow(Step step) {
+        return new FlowBuilder<Flow>("myFlow")
+                .start(step)
+
+//                .next()
+                .end();
     }
 
     @Bean
@@ -140,6 +161,18 @@ public class MyJob {
             return StepExecutionListener.super.afterStep(stepExecution);
         }
 
+    }
+
+    @Bean
+    public JobExecutionDecider decider() {
+        return (jobExecution, stepExecution) ->  {
+            String mode = jobExecution.getJobParameters().getString("mode");
+            if(mode.equals("FILL")) {
+                return new FlowExecutionStatus("FULL");
+            }else {
+               return new FlowExecutionStatus("NORMAL");
+            }
+        };
     }
 
 
